@@ -7,16 +7,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: 'pages'
-  cancel-in-progress: false
+  contents: write
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -31,54 +25,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check TypeScript
-        run: npx tsc --noEmit || echo "TypeScript check failed but continuing..."
-
       - name: Build
-        run: |
-          echo "Starting build..."
-          npm run build 2>&1 | tee build.log
-          BUILD_EXIT_CODE=${PIPESTATUS[0]}
-          if [ $BUILD_EXIT_CODE -ne 0 ]; then
-            echo "Build failed with exit code $BUILD_EXIT_CODE"
-            echo "Build log:"
-            cat build.log
-            exit $BUILD_EXIT_CODE
-          fi
-          echo "Build completed successfully"
+        run: npm run build
         env:
           NODE_ENV: production
 
-      - name: Check build output
-        run: |
-          if [ ! -d "out" ]; then
-            echo "Error: out directory not found"
-            echo "Listing current directory:"
-            ls -la
-            echo "Checking .next directory:"
-            ls -la .next 2>/dev/null || echo ".next directory not found"
-            exit 1
-          fi
-          echo "Build output directory exists"
-          ls -la out
-          echo "First few files in out:"
-          ls -la out | head -20
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
         with:
-          path: 'out'
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./out
+          cname: false

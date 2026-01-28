@@ -204,7 +204,7 @@ export function calculateSaju(
       jiName: TWELVE_JI_NAMES[hourJiIndex],
       element: GAN_ELEMENTS[hourGanIndex],
       timeRange: JI_HOURS[hourJiIndex],
-      ganSib: sibs.hour.gan,
+      ganSib: sibs.hour.gan as SibType,
       jiSib: sibs.hour.ji,
       jiHiddenSibs: sibs.hour.jiHidden,
     };

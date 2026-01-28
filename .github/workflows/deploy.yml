@@ -29,8 +29,10 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
+          GITHUB_PAGES: 'true'
+          REPOSITORY_NAME: 'mysaju'
 
-      - name: Check build output
+      - name: Prepare for deployment
         run: |
           if [ ! -d "out" ]; then
             echo "Error: out directory not found"
@@ -38,10 +40,28 @@ jobs:
           fi
           echo "Build output structure:"
           ls -la out
-          echo "Checking for index.html:"
-          ls -la out/index.html || echo "index.html not found"
-          echo "First few files:"
+          
+          # basePath로 인해 out/mysaju에 빌드된 경우, 루트로 복사
+          if [ -d "out/mysaju" ]; then
+            echo "Found mysaju directory, copying contents to root..."
+            cp -r out/mysaju/* out/
+            cp -r out/mysaju/.* out/ 2>/dev/null || true
+            echo "Contents copied. Verifying index.html exists:"
+            ls -la out/index.html || echo "WARNING: index.html still not found in root"
+          else
+            echo "No mysaju directory found, using root structure"
+          fi
+          
+          echo "Final structure:"
           ls -la out | head -20
+          echo "Checking for index.html:"
+          if [ -f "out/index.html" ]; then
+            echo "✓ index.html found in root"
+            head -20 out/index.html
+          else
+            echo "✗ index.html NOT found in root"
+            exit 1
+          fi
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v3

@@ -19,9 +19,14 @@ export default function Home() {
     calendarType: 'solar' | 'lunar';
     gender: 'male' | 'female';
   }) => {
-    // 시간을 모를 경우 null로 전달하여 시주를 계산하지 않음
-    const result = calculateSaju(data.year, data.month, data.day, data.hour);
-    setSajuResult(result);
+    try {
+      // 시간을 모를 경우 null로 전달하여 시주를 계산하지 않음
+      const result = calculateSaju(data.year, data.month, data.day, data.hour);
+      setSajuResult(result);
+    } catch (error) {
+      console.error('사주 계산 중 오류 발생:', error);
+      alert('사주 계산 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
   };
 
   return (

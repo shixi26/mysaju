@@ -271,21 +271,21 @@ export function calculateElementCount(saju: SajuResult): ElementCount {
   };
 
   // 년주
-  count[GAN_ELEMENTS[TEN_GAN.indexOf(saju.year.gan)]]++;
-  count[JI_ELEMENTS[TWELVE_JI.indexOf(saju.year.ji)]]++;
+  count[GAN_ELEMENTS[TEN_GAN.indexOf(saju.year.gan as (typeof TEN_GAN)[number])]]++;
+  count[JI_ELEMENTS[TWELVE_JI.indexOf(saju.year.ji as (typeof TWELVE_JI)[number])]]++;
 
   // 월주
-  count[GAN_ELEMENTS[TEN_GAN.indexOf(saju.month.gan)]]++;
-  count[JI_ELEMENTS[TWELVE_JI.indexOf(saju.month.ji)]]++;
+  count[GAN_ELEMENTS[TEN_GAN.indexOf(saju.month.gan as (typeof TEN_GAN)[number])]]++;
+  count[JI_ELEMENTS[TWELVE_JI.indexOf(saju.month.ji as (typeof TWELVE_JI)[number])]]++;
 
   // 일주
-  count[GAN_ELEMENTS[TEN_GAN.indexOf(saju.day.gan)]]++;
-  count[JI_ELEMENTS[TWELVE_JI.indexOf(saju.day.ji)]]++;
+  count[GAN_ELEMENTS[TEN_GAN.indexOf(saju.day.gan as (typeof TEN_GAN)[number])]]++;
+  count[JI_ELEMENTS[TWELVE_JI.indexOf(saju.day.ji as (typeof TWELVE_JI)[number])]]++;
 
   // 시주 (있는 경우에만)
   if (saju.hour) {
-    count[GAN_ELEMENTS[TEN_GAN.indexOf(saju.hour.gan)]]++;
-    count[JI_ELEMENTS[TWELVE_JI.indexOf(saju.hour.ji)]]++;
+    count[GAN_ELEMENTS[TEN_GAN.indexOf(saju.hour.gan as (typeof TEN_GAN)[number])]]++;
+    count[JI_ELEMENTS[TWELVE_JI.indexOf(saju.hour.ji as (typeof TWELVE_JI)[number])]]++;
   }
 
   return count;

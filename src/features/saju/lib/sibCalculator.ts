@@ -148,11 +148,11 @@ export function calculateAllSibs(
   hourGan: string,
   hourJi: string
 ) {
-  const yearGanIndex = TEN_GAN.indexOf(yearGan as (typeof TEN_GAN)[number]);
-  const yearJiIndex = TWELVE_JI.indexOf(yearJi as (typeof TWELVE_JI)[number]);
-  const monthGanIndex = TEN_GAN.indexOf(monthGan as (typeof TEN_GAN)[number]);
-  const monthJiIndex = TWELVE_JI.indexOf(monthJi as (typeof TWELVE_JI)[number]);
-  const dayJiIndex = TWELVE_JI.indexOf(dayJi as (typeof TWELVE_JI)[number]);
+  const yearGanIndex = TEN_GAN.indexOf(yearGan as any);
+  const yearJiIndex = TWELVE_JI.indexOf(yearJi as any);
+  const monthGanIndex = TEN_GAN.indexOf(monthGan as any);
+  const monthJiIndex = TWELVE_JI.indexOf(monthJi as any);
+  const dayJiIndex = TWELVE_JI.indexOf(dayJi as any);
 
   // 만세력: 지지의 장간들도 모두 계산
   const yearJiSibs = calculateJiSibsWithHiddenGans(dayGanIndex, yearJiIndex);
@@ -179,8 +179,8 @@ export function calculateAllSibs(
 
   // 시주가 있는 경우에만 계산
   if (hourGan && hourJi) {
-    const hourGanIndex = TEN_GAN.indexOf(hourGan as (typeof TEN_GAN)[number]);
-    const hourJiIndex = TWELVE_JI.indexOf(hourJi as (typeof TWELVE_JI)[number]);
+    const hourGanIndex = TEN_GAN.indexOf(hourGan as any);
+    const hourJiIndex = TWELVE_JI.indexOf(hourJi as any);
     const hourJiSibs = calculateJiSibsWithHiddenGans(dayGanIndex, hourJiIndex);
 
     return {

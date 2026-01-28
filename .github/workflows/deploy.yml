@@ -29,8 +29,19 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
-          GITHUB_PAGES: 'true'
-          REPOSITORY_NAME: 'mysaju'
+
+      - name: Check build output
+        run: |
+          if [ ! -d "out" ]; then
+            echo "Error: out directory not found"
+            exit 1
+          fi
+          echo "Build output structure:"
+          ls -la out
+          echo "Checking for index.html:"
+          ls -la out/index.html || echo "index.html not found"
+          echo "First few files:"
+          ls -la out | head -20
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v3

@@ -868,6 +868,41 @@ function ElementAndSibCharts({
                 })}
               </tbody>
             </table>
+            {elementData.some(
+              (d) => getElementLabel(d.percentage) === '과다' || getElementLabel(d.percentage) === '부족'
+            ) && (
+              <div className="mt-4 w-full space-y-3 rounded-lg border border-amber-200/80 bg-amber-50/50 p-4">
+                <h4 className="text-sm font-semibold text-stone-700">과다·부족 해석</h4>
+                {elementData
+                  .filter(
+                    (d) =>
+                      getElementLabel(d.percentage) === '과다' ||
+                      getElementLabel(d.percentage) === '부족'
+                  )
+                  .map((d) => {
+                    const label = getElementLabel(d.percentage);
+                    const info = FIVE_ELEMENTS[d.key];
+                    const char = ELEMENT_CHARACTERISTICS[d.key];
+                    const text =
+                      label === '과다' ? char.excessAdvice : char.deficiencyAdvice;
+                    return (
+                      <div
+                        key={d.key}
+                        className={`rounded-md border p-3 text-sm ${
+                          label === '과다'
+                            ? 'border-red-200/80 bg-red-50/50'
+                            : 'border-blue-200/80 bg-blue-50/50'
+                        }`}
+                      >
+                        <p className={`mb-1 font-semibold ${info.color}`}>
+                          {d.key} {info.name} {label}
+                        </p>
+                        <p className="text-stone-700 leading-relaxed">{text}</p>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </div>
         </div>
 

@@ -7,6 +7,10 @@ export interface ElementCharacteristic {
   strength: string;
   weakness: string;
   advice: string;
+  /** 과다(25% 초과)일 때의 해석·조언 */
+  excessAdvice: string;
+  /** 부족(0%)일 때의 해석·조언 */
+  deficiencyAdvice: string;
 }
 
 export const ELEMENT_CHARACTERISTICS: Record<ElementType, ElementCharacteristic> = {
@@ -17,6 +21,8 @@ export const ELEMENT_CHARACTERISTICS: Record<ElementType, ElementCharacteristic>
     strength: '창의력과 발전 의지가 뛰어나며, 새로운 아이디어를 만들어내는 능력이 있습니다. 타인과의 협력도 잘합니다.',
     weakness: '때로는 성급하거나 경쟁심이 과도할 수 있으며, 감정 기복이 있을 수 있습니다.',
     advice: '목 오행이 주력인 경우, 계획을 세우고 차근차근 실행하는 것이 중요합니다. 휴식과 여유를 갖는 것도 필요합니다.',
+    excessAdvice: '목이 과다하면 성급함·고집·경쟁심이 커질 수 있습니다. 차분히 기다리고, 타인의 의견을 듣는 습관이 도움이 됩니다.',
+    deficiencyAdvice: '목이 부족하면 추진력·성장 욕구가 약해질 수 있습니다. 작은 목표를 정해 꾸준히 실행하고, 푸른 자연과 함께하는 시간을 늘려보세요.',
   },
   화: {
     name: '火',
@@ -25,6 +31,8 @@ export const ELEMENT_CHARACTERISTICS: Record<ElementType, ElementCharacteristic>
     strength: '열정과 추진력이 강하며, 예술적 감각과 창의력이 뛰어납니다. 사람들에게 에너지를 전달하는 능력이 있습니다.',
     weakness: '성급하거나 감정적일 수 있으며, 지나친 열정으로 인해 지치기도 쉽습니다.',
     advice: '화 오행이 주력인 경우, 감정을 조절하고 차분함을 유지하는 것이 중요합니다. 충분한 휴식과 명상을 통해 에너지를 관리하세요.',
+    excessAdvice: '화가 과다하면 성급함·예민함·소진이 올 수 있습니다. 휴식과 수면을 충분히 하고, 물·차가운 음식을 적당히 보완하는 것이 좋습니다.',
+    deficiencyAdvice: '화가 부족하면 열정·표현력이 줄어들 수 있습니다. 햇빛·운동·취미로 에너지를 북돋우고, 작은 성취를 축하하는 습관이 도움이 됩니다.',
   },
   토: {
     name: '土',
@@ -33,6 +41,8 @@ export const ELEMENT_CHARACTERISTICS: Record<ElementType, ElementCharacteristic>
     strength: '안정성과 신뢰성이 뛰어나며, 계획적이고 체계적인 일 처리가 가능합니다. 인내심과 끈기가 강합니다.',
     weakness: '보수적이거나 변화를 두려워할 수 있으며, 때로는 고집이 세거나 융통성이 부족할 수 있습니다.',
     advice: '토 오행이 주력인 경우, 새로운 시도와 변화를 두려워하지 말고 적극적으로 도전해보세요. 유연한 사고가 필요합니다.',
+    excessAdvice: '토가 과다하면 고집·완고함·우울감이 늘 수 있습니다. 새로운 경험을 적극 시도하고, 밝은 색·활동적인 일정이 도움이 됩니다.',
+    deficiencyAdvice: '토가 부족하면 안정감·집중력이 떨어질 수 있습니다. 규칙적인 생활·정리 정돈·땅을 밟는 산책이 균형을 돕습니다.',
   },
   금: {
     name: '金',
@@ -41,6 +51,8 @@ export const ELEMENT_CHARACTERISTICS: Record<ElementType, ElementCharacteristic>
     strength: '논리적 사고와 분석력이 뛰어나며, 체계적이고 정확한 일 처리가 가능합니다. 리더십과 조직력이 있습니다.',
     weakness: '완벽주의적이거나 융통성이 부족할 수 있으며, 감정 표현이 서툴거나 냉정해 보일 수 있습니다.',
     advice: '금 오행이 주력인 경우, 감정을 표현하고 타인과의 소통을 늘리는 것이 중요합니다. 완벽보다는 과정을 즐기는 여유가 필요합니다.',
+    excessAdvice: '금이 과다하면 냉정함·완벽주의·고립이 심해질 수 있습니다. 따뜻한 대화·취미·감정 표현을 늘리고, 유연하게 타협하는 연습이 좋습니다.',
+    deficiencyAdvice: '금이 부족하면 결단력·원칙이 흔들릴 수 있습니다. 작은 규칙을 정해 지키고, 정리·정돈·명확한 목표 설정이 도움이 됩니다.',
   },
   수: {
     name: '水',
@@ -49,5 +61,7 @@ export const ELEMENT_CHARACTERISTICS: Record<ElementType, ElementCharacteristic>
     strength: '지적 능력과 학습 능력이 뛰어나며, 상황에 맞게 유연하게 대처하는 능력이 있습니다. 깊이 있는 통찰력이 있습니다.',
     weakness: '과도하게 신중하거나 소극적일 수 있으며, 감정을 억제하거나 고립되는 경향이 있을 수 있습니다.',
     advice: '수 오행이 주력인 경우, 적극적인 행동과 표현이 필요합니다. 타인과의 교류를 늘리고, 감정을 솔직하게 표현해보세요.',
+    excessAdvice: '수가 과다하면 소극성·우울·고립이 늘 수 있습니다. 밝은 환경·운동·사람 만남을 늘리고, 작은 행동부터 적극적으로 나서 보세요.',
+    deficiencyAdvice: '수가 부족하면 지혜·차분함이 줄어들 수 있습니다. 독서·명상·충분한 휴식과 물 보충이 균형을 돕습니다.',
   },
 };

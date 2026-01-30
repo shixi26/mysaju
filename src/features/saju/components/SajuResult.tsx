@@ -20,7 +20,7 @@ import { calculateElementRelationship } from '../lib/elementRelationship';
 import { analyzeYearFortune } from '../lib/yearFortune';
 import { WOONSUNG_NAMES, getWoonsungIndex, getShinsal } from '../constants/woonsungShinsal';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowRight, ArrowDown, User, DollarSign, Heart, Info, Calendar } from 'lucide-react';
+import { Sparkles, ArrowRight, ArrowDown, User, DollarSign, Heart, Info, Calendar, HelpCircle } from 'lucide-react';
 
 interface SajuResultProps {
   result: SajuResultType;
@@ -34,6 +34,54 @@ const ELEMENT_SHORT: Record<ElementType, string> = {
   금: '금',
   수: '수',
 };
+
+const ELEMENT_ORDER: ElementType[] = ['목', '화', '토', '금', '수'];
+const SIB_DISPLAY_ORDER: SibType[] = [
+  '식신', '상관', '편재', '정재', '편관', '정관', '편인', '정인', '비견', '겁재',
+];
+
+const ELEMENT_DONUT_COLORS: Record<ElementType, string> = {
+  목: '#22c55e',
+  화: '#ef4444',
+  토: '#eab308',
+  금: '#78716c',
+  수: '#1e40af',
+};
+
+const SIB_DONUT_COLORS = [
+  '#64748b', '#475569', '#334155', '#1e293b', '#0f172a',
+  '#94a3b8', '#cbd5e1', '#f1f5f9', '#94a3b8', '#64748b',
+];
+
+function getElementLabel(percentage: number): '부족' | '적정' | '발달' | '과다' {
+  if (percentage <= 0) return '부족';
+  if (percentage <= 12.5) return '적정';
+  if (percentage <= 25) return '발달';
+  return '과다';
+}
+
+function computeSibCount(result: SajuResultType): Record<SibType, number> {
+  const sibCount: Record<SibType, number> = {
+    비견: 0, 겁재: 0, 식신: 0, 상관: 0, 편재: 0, 정재: 0, 편관: 0, 정관: 0, 편인: 0, 정인: 0,
+  };
+  const positions: SibType[] = [
+    result.year.ganSib as SibType,
+    result.year.jiSib,
+    ...(result.year.jiHiddenSibs ?? []),
+    result.month.ganSib as SibType,
+    result.month.jiSib,
+    ...(result.month.jiHiddenSibs ?? []),
+    result.day.jiSib,
+    ...(result.day.jiHiddenSibs ?? []),
+    ...(result.hour
+      ? [result.hour.ganSib as SibType, result.hour.jiSib, ...(result.hour.jiHiddenSibs ?? [])]
+      : []),
+  ];
+  positions.forEach((sib) => {
+    sibCount[sib]++;
+  });
+  return sibCount;
+}
 
 function ganIndex(gan: string): number {
   return TEN_GAN.indexOf(gan as (typeof TEN_GAN)[number]);
@@ -130,6 +178,7 @@ export function SajuResult({ result, dataSource }: SajuResultProps) {
                       className={`border border-amber-300/80 px-2 py-3 ${isDay ? 'bg-sky-50/80' : 'bg-white'}`}
                     >
                       <div className="flex items-center justify-center gap-1">
+                        <span className={`text-sm text-stone-600 ${elementColorClass(el)}`}>{p.ganName}</span>
                         <span className={`text-2xl font-bold ${elementColorClass(el)}`}>{p.gan}</span>
                         <span className={`text-xs ${elementColorClass(el)}`}>{sign}</span>
                       </div>
@@ -167,6 +216,7 @@ export function SajuResult({ result, dataSource }: SajuResultProps) {
                       className={`border border-amber-300/80 px-2 py-3 ${isDay ? 'bg-sky-50/80' : 'bg-white'}`}
                     >
                       <div className="flex items-center justify-center gap-1">
+                        <span className="text-sm text-stone-600">{p.jiName}</span>
                         <span className="text-2xl font-bold text-stone-800">{p.ji}</span>
                         <span className={`text-xs ${elementColorClass(el)}`}>{sign}</span>
                       </div>
@@ -248,7 +298,9 @@ export function SajuResult({ result, dataSource }: SajuResultProps) {
 
       <DayGanElementRelationship dayElement={result.day.element} />
 
-      <ElementAnalysis elementCount={elementCount} />
+      <ElementAndSibCharts elementCount={elementCount} result={result} />
+
+      <MyElementWheel result={result} elementCount={elementCount} />
     </div>
   );
 }
@@ -269,7 +321,7 @@ function DayGanElementRelationship({ dayElement }: { dayElement: ElementType }) 
         {/* 일간 (자신) */}
         <div className="flex flex-col items-center">
           <div className={`px-6 py-4 rounded-lg border-2 ${selfInfo.bgColor} ${selfInfo.color} font-bold text-lg`}>
-            일간: {selfInfo.name} ({relationship.self})
+            일간: {relationship.self} {selfInfo.name}
           </div>
         </div>
 
@@ -284,7 +336,7 @@ function DayGanElementRelationship({ dayElement }: { dayElement: ElementType }) 
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">나를 낳는 것:</span>
                   <span className={`font-semibold ${generatedByInfo.color}`}>
-                    {generatedByInfo.name} ({relationship.generatedBy})
+                    {relationship.generatedBy} {generatedByInfo.name}
                   </span>
                 </div>
                 <ArrowDown className="w-4 h-4 text-green-600" />
@@ -296,7 +348,7 @@ function DayGanElementRelationship({ dayElement }: { dayElement: ElementType }) 
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">내가 낳는 것:</span>
                   <span className={`font-semibold ${generatesInfo.color}`}>
-                    {generatesInfo.name} ({relationship.generates})
+                    {relationship.generates} {generatesInfo.name}
                   </span>
                 </div>
               </div>
@@ -312,7 +364,7 @@ function DayGanElementRelationship({ dayElement }: { dayElement: ElementType }) 
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">나를 극하는 것:</span>
                   <span className={`font-semibold ${overcomeByInfo.color}`}>
-                    {overcomeByInfo.name} ({relationship.overcomeBy})
+                    {relationship.overcomeBy} {overcomeByInfo.name}
                   </span>
                 </div>
                 <ArrowDown className="w-4 h-4 text-red-600" />
@@ -324,7 +376,7 @@ function DayGanElementRelationship({ dayElement }: { dayElement: ElementType }) 
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">내가 극하는 것:</span>
                   <span className={`font-semibold ${overcomesInfo.color}`}>
-                    {overcomesInfo.name} ({relationship.overcomes})
+                    {relationship.overcomes} {overcomesInfo.name}
                   </span>
                 </div>
               </div>
@@ -618,7 +670,7 @@ function YearFortune({ result }: { result: SajuResultType }) {
           <span
             className={`px-2 py-1 rounded text-sm font-medium ${elementInfo.bgColor} ${elementInfo.color}`}
           >
-            {elementInfo.name}
+            {yearFortune.yearElement} {elementInfo.name}
           </span>
           <span className="px-2 py-1 rounded text-sm font-medium bg-purple-100 text-purple-700">
             {sibInfo.name} ({sibInfo.shortName})
@@ -702,125 +754,352 @@ function SibExplanation({ result }: { result: SajuResultType }) {
   );
 }
 
-function ElementAnalysis({ elementCount }: { elementCount: ElementCount }) {
-  const elements = Object.entries(elementCount) as [
-    keyof ElementCount,
-    number,
-  ][];
+function ElementAndSibCharts({
+  elementCount,
+  result,
+}: {
+  elementCount: ElementCount;
+  result: SajuResultType;
+}) {
+  const ELEMENT_TOTAL = 8;
+  const sibCount = computeSibCount(result);
+  const sibTotal = Object.values(sibCount).reduce((a, b) => a + b, 0);
 
-  const maxCount = Math.max(...elements.map(([, count]) => count));
-  const dominantElements = elements
-    .filter(([, count]) => count === maxCount)
-    .map(([element]) => element);
+  const elementData = ELEMENT_ORDER.map((el) => ({
+    key: el,
+    count: elementCount[el],
+    percentage: (elementCount[el] / ELEMENT_TOTAL) * 100,
+  }));
+  const elementConicParts = elementData
+    .filter((d) => d.count > 0)
+    .reduce<{ acc: string; prev: number }>(
+      (r, d) => {
+        const next = r.prev + d.percentage;
+        const part = `${ELEMENT_DONUT_COLORS[d.key]} ${r.prev}% ${next}%`;
+        return { acc: r.acc ? `${r.acc}, ${part}` : part, prev: next };
+      },
+      { acc: '', prev: 0 }
+    );
+  const dominantElement =
+    elementData.reduce((a, b) => (b.count > a.count ? b : a), elementData[0]);
+  const dominantElementInfo =
+    dominantElement.count > 0
+      ? FIVE_ELEMENTS[dominantElement.key]
+      : null;
+
+  const sibData = SIB_DISPLAY_ORDER.map((sib, i) => ({
+    key: sib,
+    count: sibCount[sib],
+    percentage: sibTotal > 0 ? (sibCount[sib] / sibTotal) * 100 : 0,
+    color: SIB_DONUT_COLORS[i],
+  }));
+  const sibConicParts = sibData
+    .filter((d) => d.count > 0)
+    .reduce<{ acc: string; prev: number }>(
+      (r, d) => {
+        const next = r.prev + d.percentage;
+        const part = `${d.color} ${r.prev}% ${next}%`;
+        return { acc: r.acc ? `${r.acc}, ${part}` : part, prev: next };
+      },
+      { acc: '', prev: 0 }
+    );
+  const dominantSib = sibData.reduce((a, b) => (b.count > a.count ? b : a), sibData[0]);
+  const dominantSibInfo =
+    dominantSib.count > 0 ? TEN_SIBS[dominantSib.key] : null;
 
   return (
-    <Card className="p-6 md:p-8">
-      <h3 className="text-xl font-bold mb-4">오행 분석</h3>
-      <div className="space-y-4">
-        {elements.map(([element, count]) => {
-          const elementInfo = FIVE_ELEMENTS[element];
-          const percentage = (count / 8) * 100;
-          const isDominant = dominantElements.includes(element);
-
-          return (
-            <div key={element} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`font-semibold ${elementInfo.color}`}
-                  >
-                    {elementInfo.name} ({element})
-                  </span>
-                  {isDominant && (
-                    <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                      주력
-                    </span>
-                  )}
-                </div>
-                <span className="text-sm font-medium">{count}개</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${percentage}%` }}
-                  transition={{ duration: 0.5 }}
-                  className={`h-3 rounded-full ${elementInfo.barColor || elementInfo.bgColor}`}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {dominantElements.length > 0 && (
-        <div className="mt-6 space-y-4">
-          <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Info className="w-5 h-5 text-purple-600" />
-              <p className="text-sm font-semibold">
-                주력 오행: {dominantElements
-                  .map((e) => `${FIVE_ELEMENTS[e].name}(${e})`)
-                  .join(', ')}
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {dominantElements.length === 1
-                ? '이 오행이 가장 많아 사주팔자의 주요 기운을 형성합니다.'
-                : '이 오행들이 가장 많아 사주팔자의 주요 기운을 형성합니다.'}
-            </p>
+    <Card className="p-6 md:p-8 bg-stone-50/80 border-stone-200">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* 오행 */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-bold text-stone-800">오행</h3>
+            <HelpCircle className="w-4 h-4 text-stone-500" aria-hidden />
           </div>
-
-          {/* 주력 오행별 상세 설명 */}
-          {dominantElements.map((element) => {
-            const char = ELEMENT_CHARACTERISTICS[element];
-            const elementInfo = FIVE_ELEMENTS[element];
-            const count = elementCount[element];
-            const percentage = (count / 8) * 100;
-
-            return (
-              <div
-                key={element}
-                className={`p-5 rounded-lg border-2 ${elementInfo.bgColor} border-opacity-50`}
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <span className={`text-2xl font-bold ${elementInfo.color}`}>
-                    {char.name}
+          <div className="flex flex-col items-center gap-4">
+            <div
+              className="relative w-40 h-40 rounded-full border border-stone-300 bg-stone-100"
+              style={{
+                background: elementConicParts.acc
+                  ? `conic-gradient(from 0deg, ${elementConicParts.acc})`
+                  : undefined,
+              }}
+            >
+              <div className="absolute inset-[15%] rounded-full bg-stone-50 border border-stone-200 flex items-center justify-center">
+                {dominantElementInfo && (
+                  <span
+                    className={`text-xl font-bold ${dominantElementInfo.color}`}
+                  >
+                    {dominantElement.key} {dominantElementInfo.name}
                   </span>
-                  <div>
-                    <h4 className={`font-bold text-lg ${elementInfo.color}`}>
-                      {element} 오행 ({count}개, {percentage.toFixed(1)}%)
-                    </h4>
-                    <p className="text-sm text-muted-foreground">{char.description}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <p className="font-semibold mb-1 text-gray-700">성격 특성</p>
-                    <p className="text-gray-600 leading-relaxed">{char.personality}</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="p-3 bg-white/50 rounded-lg">
-                      <p className="font-semibold mb-1 text-green-700">강점</p>
-                      <p className="text-xs text-gray-600 leading-relaxed">{char.strength}</p>
-                    </div>
-                    <div className="p-3 bg-white/50 rounded-lg">
-                      <p className="font-semibold mb-1 text-orange-700">약점</p>
-                      <p className="text-xs text-gray-600 leading-relaxed">{char.weakness}</p>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="font-semibold mb-1 text-blue-700">조언</p>
-                    <p className="text-xs text-gray-700 leading-relaxed">{char.advice}</p>
-                  </div>
-                </div>
+                )}
               </div>
+            </div>
+            <p className="text-sm font-medium text-stone-600">오행 Q</p>
+            <table className="w-full text-sm border-collapse bg-white border border-stone-200 rounded overflow-hidden">
+              <thead>
+                <tr className="bg-stone-100">
+                  <th className="border-b border-stone-200 px-3 py-2 text-left font-semibold text-stone-700">
+                    구분
+                  </th>
+                  <th className="border-b border-stone-200 px-3 py-2 text-right font-semibold text-stone-700 w-28">
+                    비율
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {ELEMENT_ORDER.map((el, i) => {
+                  const d = elementData[i];
+                  const info = FIVE_ELEMENTS[el];
+                  const label = getElementLabel(d.percentage);
+                  return (
+                    <tr
+                      key={el}
+                      className={i % 2 === 0 ? 'bg-stone-50/50' : 'bg-white'}
+                    >
+                      <td className={`border-b border-stone-100 px-3 py-2 ${info.color} font-medium`}>
+                        {el} {info.name}
+                      </td>
+                      <td className="border-b border-stone-100 px-3 py-2 text-right text-stone-700">
+                        {d.percentage.toFixed(1)}% {label}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 십성 */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-bold text-stone-800">십성</h3>
+            <HelpCircle className="w-4 h-4 text-stone-500" aria-hidden />
+          </div>
+          <div className="flex flex-col items-center gap-4">
+            <div
+              className="relative w-40 h-40 rounded-full border border-stone-300 bg-stone-100"
+              style={{
+                background: sibConicParts.acc
+                  ? `conic-gradient(from 0deg, ${sibConicParts.acc})`
+                  : undefined,
+              }}
+            >
+              <div className="absolute inset-[15%] rounded-full bg-stone-50 border border-stone-200 flex items-center justify-center text-center">
+                {dominantSibInfo && (
+                  <span className="text-sm font-bold text-stone-800">
+                    {dominantSibInfo.name}
+                    <br />
+                    {dominantSibInfo.shortName}
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className="text-sm font-medium text-stone-600">십성 Q</p>
+            <table className="w-full text-sm border-collapse bg-white border border-stone-200 rounded overflow-hidden">
+              <thead>
+                <tr className="bg-stone-100">
+                  <th className="border-b border-stone-200 px-3 py-2 text-left font-semibold text-stone-700">
+                    구분
+                  </th>
+                  <th className="border-b border-stone-200 px-3 py-2 text-right font-semibold text-stone-700 w-20">
+                    비율
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {SIB_DISPLAY_ORDER.map((sib, i) => {
+                  const d = sibData[i];
+                  const info = TEN_SIBS[sib];
+                  return (
+                    <tr
+                      key={sib}
+                      className={i % 2 === 0 ? 'bg-stone-50/50' : 'bg-white'}
+                    >
+                      <td className="border-b border-stone-100 px-3 py-2 text-stone-800 font-medium">
+                        {info.name}({info.shortName})
+                      </td>
+                      <td className="border-b border-stone-100 px-3 py-2 text-right text-stone-700">
+                        {d.count > 0 ? `${d.percentage.toFixed(1)}%` : '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/** 일간 기준 오행 십성 그룹: 비겁(비견+겁재), 식상(식신+상관), 재성(편재+정재), 관성(편관+정관), 인성(편인+정인) */
+function getSibGroupForElement(
+  rel: ReturnType<typeof calculateElementRelationship>,
+  el: ElementType
+): string {
+  if (rel.self === el) return '비겁';
+  if (rel.generates === el) return '식상';
+  if (rel.overcomes === el) return '재성';
+  if (rel.overcomeBy === el) return '관성';
+  if (rel.generatedBy === el) return '인성';
+  return '';
+}
+
+/** 나의 오행: 일간 기준 오행·십성 그룹·비율 원형 다이어그램 */
+function MyElementWheel({
+  result,
+  elementCount,
+}: {
+  result: SajuResultType;
+  elementCount: ElementCount;
+}) {
+  const dayElement = result.day.element;
+  const dayGanName = result.day.ganName;
+  const rel = calculateElementRelationship(dayElement);
+  const ELEMENT_TOTAL = 8;
+  const cycleOrder: ElementType[] = ['수', '목', '화', '토', '금'];
+
+  const cx = 200;
+  const cy = 200;
+  const r = 140;
+  const nodeR = 52;
+
+  const positions = cycleOrder.map((_, i) => {
+    const deg = -90 + i * 72;
+    const rad = (deg * Math.PI) / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  });
+
+  const genArrowPath = (fromIdx: number, toIdx: number) => {
+    const from = positions[fromIdx];
+    const to = positions[toIdx];
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const x1 = from.x + (dx / len) * nodeR;
+    const y1 = from.y + (dy / len) * nodeR;
+    const x2 = to.x - (dx / len) * nodeR;
+    const y2 = to.y - (dy / len) * nodeR;
+    return `M ${x1} ${y1} L ${x2} ${y2}`;
+  };
+
+  return (
+    <Card className="p-6 md:p-8 bg-stone-50/80 border-stone-200">
+      <h3 className="text-xl font-bold text-stone-800 mb-2">
+        나의 오행: {dayGanName}
+        {FIVE_ELEMENTS[dayElement].name}
+      </h3>
+      <div className="flex items-center gap-4 mb-6 text-sm text-stone-600">
+        <span className="flex items-center gap-1">
+          <ArrowRight className="w-4 h-4 text-blue-600" aria-hidden />
+          생(生)
+        </span>
+        <span className="flex items-center gap-1">
+          <ArrowRight className="w-4 h-4 text-red-600" aria-hidden />
+          극(剋)
+        </span>
+      </div>
+      <div className="flex justify-center overflow-x-auto">
+        <svg
+          viewBox="0 0 400 400"
+          className="w-full max-w-[400px] h-auto"
+          aria-label="나의 오행 다이어그램"
+        >
+          {/* 생(生) 사이클 - 파란 화살표: 金→水→木→火→土→金 */}
+          {[0, 1, 2, 3, 4].map((i) => (
+            <path
+              key={`gen-${i}`}
+              d={genArrowPath(i, (i + 1) % 5)}
+              fill="none"
+              stroke="#2563eb"
+              strokeWidth="2"
+              markerEnd="url(#arrow-blue)"
+            />
+          ))}
+          {/* 극(剋) 사이클 - 빨간 화살표: 水→火→金→木→土→水 (0→2→4→1→3→0) */}
+          {[[0, 2], [2, 4], [4, 1], [1, 3], [3, 0]].map(([from, to], i) => (
+            <path
+              key={`over-${i}`}
+              d={genArrowPath(from, to)}
+              fill="none"
+              stroke="#dc2626"
+              strokeWidth="2"
+              markerEnd="url(#arrow-red)"
+            />
+          ))}
+          <defs>
+            <marker
+              id="arrow-blue"
+              markerWidth="10"
+              markerHeight="10"
+              refX="9"
+              refY="3"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,6 L9,3 z" fill="#2563eb" />
+            </marker>
+            <marker
+              id="arrow-red"
+              markerWidth="10"
+              markerHeight="10"
+              refX="9"
+              refY="3"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,6 L9,3 z" fill="#dc2626" />
+            </marker>
+          </defs>
+          {cycleOrder.map((el, i) => {
+            const pos = positions[i];
+            const pct = (elementCount[el] / ELEMENT_TOTAL) * 100;
+            const sibGroup = getSibGroupForElement(rel, el);
+            return (
+              <g key={el}>
+                <circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r={nodeR}
+                  fill="white"
+                  stroke="#d6d3d1"
+                  strokeWidth="1.5"
+                />
+                <rect
+                  x={pos.x - nodeR + 4}
+                  y={pos.y + nodeR - 4 - (pct / 100) * (nodeR * 2 - 8)}
+                  width={8}
+                  height={(pct / 100) * (nodeR * 2 - 8) || 0}
+                  rx={2}
+                  fill={ELEMENT_DONUT_COLORS[el]}
+                  opacity={0.8}
+                />
+                <text
+                  x={pos.x}
+                  y={pos.y - 6}
+                  textAnchor="middle"
+                  className="text-sm font-semibold"
+                  fill="#44403c"
+                >
+                  {el}({sibGroup})
+                </text>
+                <text
+                  x={pos.x}
+                  y={pos.y + 10}
+                  textAnchor="middle"
+                  className="text-xs"
+                  fill="#78716c"
+                >
+                  {pct.toFixed(1)}%
+                </text>
+              </g>
             );
           })}
-        </div>
-      )}
+        </svg>
+      </div>
     </Card>
   );
 }

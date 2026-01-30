@@ -3,8 +3,7 @@
  * - 년주: 입춘(立春) 기준
  * - 월주: 절기(節氣) 기준 (12節)
  * - 일주: 1900년 1월 31일 = 甲子日 기준
- * - 시주: 자시(子時) 23:30 시작, 일간 기준 시간 계산
- * - 자시(23:30~01:29) 중 23:30~23:59는 다음날 일주 기준
+ * - 시주: 자시(子時) 00:00 시작, 일간 기준 시간 계산
  */
 
 import {
@@ -124,26 +123,18 @@ function calculateDayGanZhi(year: number, month: number, day: number): { gan: nu
 
 
 /**
- * 자시(子時) 여부 및 야자시 판단
- * 23:30~23:59 → 야자시(다음날 자시)
- */
-function isLateNightZi(hour: number, minute: number): boolean {
-  const totalMinutes = hour * 60 + minute;
-  return totalMinutes >= 1410; // 23:30 = 1410분
-}
-
-/**
- * 시지(時支) 계산 - 자시 23:30 시작
- * 子時: 23:30~01:29 (0)
+ * 시지(時支) 계산 - 자시 00:00 시작
+ * 子時: 00:00~01:29 (0)
  * 丑時: 01:30~03:29 (1)
  * ...
- * 亥時: 21:30~23:29 (11)
+ * 戌時: 19:30~21:59 (10)
+ * 亥時: 22:00~23:59 (11)
  */
 function calculateHourJi(hour: number, minute: number = 0): number {
   const totalMinutes = hour * 60 + minute;
   
-  // 자시 23:30~01:29
-  if (totalMinutes >= 1410 || totalMinutes < 90) return 0;
+  // 자시 00:00~01:29
+  if (totalMinutes < 90) return 0;
   // 축시 01:30~03:29
   if (totalMinutes < 210) return 1;
   // 인시 03:30~05:29
@@ -162,9 +153,9 @@ function calculateHourJi(hour: number, minute: number = 0): number {
   if (totalMinutes < 1050) return 8;
   // 유시 17:30~19:29
   if (totalMinutes < 1170) return 9;
-  // 술시 19:30~21:29
-  if (totalMinutes < 1290) return 10;
-  // 해시 21:30~23:29
+  // 술시 19:30~21:59
+  if (totalMinutes < 1320) return 10;
+  // 해시 22:00~23:59
   return 11;
 }
 
@@ -193,19 +184,6 @@ export function calculateSaju(
   minute: number = 0,
   solarTermsOverride?: Record<number, SolarTermsYearData> | null
 ): SajuResult {
-  // 야자시(23:30~23:59)인 경우 다음날로 일주 계산
-  let calcYear = year;
-  let calcMonth = month;
-  let calcDay = day;
-  
-  if (hour !== null && isLateNightZi(hour, minute)) {
-    const nextDate = new Date(Date.UTC(year, month - 1, day));
-    nextDate.setUTCDate(nextDate.getUTCDate() + 1);
-    calcYear = nextDate.getUTCFullYear();
-    calcMonth = nextDate.getUTCMonth() + 1;
-    calcDay = nextDate.getUTCDate();    
-  }
-
   // 절기 기준 년월 계산 (API 데이터 있으면 사용)
   const { solarYear, solarMonth } = getSolarYearMonth(
     year,
@@ -222,8 +200,8 @@ export function calculateSaju(
   const monthGanIndex = calculateMonthGan(yearGanIndex, solarMonth);
   const monthJiIndex = calculateMonthJi(solarMonth);
   
-  // 일주 계산 (야자시 보정된 날짜 사용)
-  const { gan: dayGanIndex, ji: dayJiIndex } = calculateDayGanZhi(calcYear, calcMonth, calcDay);
+  // 일주 계산
+  const { gan: dayGanIndex, ji: dayJiIndex } = calculateDayGanZhi(year, month, day);
 
   const yearGan = TEN_GAN[yearGanIndex];
   const yearJi = TWELVE_JI[yearJiIndex];

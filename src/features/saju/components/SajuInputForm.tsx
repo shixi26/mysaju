@@ -285,7 +285,7 @@ export function SajuInputForm({ onSubmit, isLoading = false }: SajuInputFormProp
               </Select>
             )}
             {!hourUnknown && (
-              <span className="text-xs text-muted-foreground">자시 23:30~</span>
+              <span className="text-xs text-muted-foreground">자시 00:00~</span>
             )}
             {hourUnknown && (
               <span className="text-xs text-muted-foreground">시주 제외 계산</span>

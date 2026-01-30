@@ -25,6 +25,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 정적 빌드만 수행. API 키 불필요. GitHub Pages에서는 /api/saju 미제공 → 클라이언트에서 로컬 solarTerms.json으로 계산
       - name: Build
         run: npm run build
         env:

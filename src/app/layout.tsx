@@ -3,7 +3,7 @@ import './globals.css';
 import Providers from './providers';
 
 export const metadata: Metadata = {
-  title: '사주팔자',
+  title: '마이사주',
   description: '생년월일시를 입력하여 사주팔자와 오행을 분석하는 앱',
 };
 

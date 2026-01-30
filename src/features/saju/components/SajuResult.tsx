@@ -2,149 +2,239 @@
 
 import { Card } from '@/components/ui/card';
 import { SajuResult as SajuResultType, calculateElementCount, ElementCount } from '../lib/calculator';
-import { FIVE_ELEMENTS, TEN_SIBS, SibType, ElementType } from '../constants/ganji';
+import {
+  FIVE_ELEMENTS,
+  TEN_SIBS,
+  TEN_GAN,
+  TWELVE_JI,
+  TEN_GAN_NAMES,
+  GAN_ELEMENTS,
+  JI_ELEMENTS,
+  JI_HIDDEN_GANS,
+  SibType,
+  ElementType,
+} from '../constants/ganji';
 import { SIB_CHARACTERISTICS } from '../constants/sibCharacteristics';
 import { ELEMENT_CHARACTERISTICS } from '../constants/elementCharacteristics';
 import { calculateElementRelationship } from '../lib/elementRelationship';
 import { analyzeYearFortune } from '../lib/yearFortune';
+import { WOONSUNG_NAMES, getWoonsungIndex, getShinsal } from '../constants/woonsungShinsal';
 import { motion } from 'framer-motion';
 import { Sparkles, ArrowRight, ArrowDown, User, DollarSign, Heart, Info, Calendar } from 'lucide-react';
 
 interface SajuResultProps {
   result: SajuResultType;
+  dataSource?: 'api' | 'client' | null;
 }
 
-export function SajuResult({ result }: SajuResultProps) {
-  const elementCount = calculateElementCount(result);
+const ELEMENT_SHORT: Record<ElementType, string> = {
+  목: '목',
+  화: '화',
+  토: '토',
+  금: '금',
+  수: '수',
+};
 
-  const PillarCard = ({
-    title,
-    gan,
-    ganName,
-    ji,
-    jiName,
-    element,
-    ganSib,
-    jiSib,
-  }: {
-    title: string;
-    gan: string;
-    ganName: string;
-    ji: string;
-    jiName: string;
-    element: keyof typeof FIVE_ELEMENTS;
-    ganSib: SibType | '일간';
-    jiSib: SibType;
-  }) => {
-    const elementInfo = FIVE_ELEMENTS[element];
-    const ganSibInfo = ganSib === '일간' ? null : TEN_SIBS[ganSib];
-    const jiSibInfo = TEN_SIBS[jiSib];
-    
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col items-center space-y-2 p-4 rounded-lg border-2 bg-white"
-      >
-        <div className="text-sm font-semibold text-muted-foreground">{title}</div>
-        <div className="flex items-center gap-2">
-          <div className="text-center">
-            <div className="text-3xl font-bold">{gan}</div>
-            <div className="text-xs text-muted-foreground">{ganName}</div>
-            {ganSibInfo && (
-              <div className="text-xs mt-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded">
-                {ganSibInfo.shortName}
-              </div>
-            )}
-            {ganSib === '일간' && (
-              <div className="text-xs mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
-                일간
-              </div>
-            )}
-          </div>
-          <div className="text-2xl">+</div>
-          <div className="text-center">
-            <div className="text-3xl font-bold">{ji}</div>
-            <div className="text-xs text-muted-foreground">{jiName}</div>
-            <div className="text-xs mt-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded">
-              {jiSibInfo.shortName}
-            </div>
-          </div>
-        </div>
-        <div
-          className={`px-3 py-1 rounded-full text-sm font-medium ${elementInfo.bgColor} ${elementInfo.color}`}
-        >
-          {elementInfo.name} ({element})
-        </div>
-      </motion.div>
-    );
-  };
+function ganIndex(gan: string): number {
+  return TEN_GAN.indexOf(gan as (typeof TEN_GAN)[number]);
+}
+
+function jiIndex(ji: string): number {
+  return TWELVE_JI.indexOf(ji as (typeof TWELVE_JI)[number]);
+}
+
+function elementSignGan(ganIdx: number): string {
+  const el = GAN_ELEMENTS[ganIdx];
+  const yang = ganIdx % 2 === 0;
+  return (yang ? '+' : '-') + ELEMENT_SHORT[el];
+}
+
+function elementSignJi(jiIdx: number): string {
+  const el = JI_ELEMENTS[jiIdx];
+  const yang = jiIdx % 2 === 0;
+  return (yang ? '+' : '-') + ELEMENT_SHORT[el];
+}
+
+function elementColorClass(el: ElementType): string {
+  return FIVE_ELEMENTS[el].color;
+}
+
+function formatJijanggan(jiIdx: number): string {
+  const hidden = JI_HIDDEN_GANS[jiIdx] ?? [];
+  return hidden.map((g) => TEN_GAN_NAMES[g]).join('');
+}
+
+export function SajuResult({ result, dataSource }: SajuResultProps) {
+  const elementCount = calculateElementCount(result);
+  const dayGanIdx = ganIndex(result.day.gan);
+
+  const pillars = [
+    ...(result.hour
+      ? [{ key: 'hour' as const, label: '생시', ...result.hour, jiIdx: jiIndex(result.hour.ji) }]
+      : []),
+    { key: 'day' as const, label: '생일', ...result.day, jiIdx: jiIndex(result.day.ji) },
+    { key: 'month' as const, label: '생월', ...result.month, jiIdx: jiIndex(result.month.ji) },
+    { key: 'year' as const, label: '생년', ...result.year, jiIdx: jiIndex(result.year.ji) },
+  ];
+
+  const sourceLabel =
+    dataSource === 'api'
+      ? '24절기: 한국천문연구원 API 적용'
+      : dataSource === 'client'
+        ? '24절기: 로컬 데이터 적용'
+        : null;
 
   return (
     <div className="space-y-6">
-      <Card className="p-6 md:p-8">
+      <Card className="p-6 md:p-8 bg-amber-50/50 border-amber-200/60">
+        {sourceLabel && (
+          <p className="mb-4 px-4 py-2 text-sm rounded-md bg-blue-50 text-blue-800 border border-blue-200">
+            {sourceLabel}
+          </p>
+        )}
         <div className="flex items-center gap-2 mb-6">
           <Sparkles className="w-6 h-6 text-purple-600" />
           <h2 className="text-2xl font-bold">사주팔자</h2>
         </div>
 
-        <div className={`grid gap-4 ${result.hour ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3'}`}>
-          <PillarCard
-            title="년주"
-            gan={result.year.gan}
-            ganName={result.year.ganName}
-            ji={result.year.ji}
-            jiName={result.year.jiName}
-            element={result.year.element}
-            ganSib={result.year.ganSib}
-            jiSib={result.year.jiSib}
-          />
-          <PillarCard
-            title="월주"
-            gan={result.month.gan}
-            ganName={result.month.ganName}
-            ji={result.month.ji}
-            jiName={result.month.jiName}
-            element={result.month.element}
-            ganSib={result.month.ganSib}
-            jiSib={result.month.jiSib}
-          />
-          <PillarCard
-            title="일주"
-            gan={result.day.gan}
-            ganName={result.day.ganName}
-            ji={result.day.ji}
-            jiName={result.day.jiName}
-            element={result.day.element}
-            ganSib={result.day.ganSib}
-            jiSib={result.day.jiSib}
-          />
-          {result.hour && (
-            <PillarCard
-              title="시주"
-              gan={result.hour.gan}
-              ganName={result.hour.ganName}
-              ji={result.hour.ji}
-              jiName={result.hour.jiName}
-              element={result.hour.element}
-              ganSib={result.hour.ganSib}
-              jiSib={result.hour.jiSib}
-            />
-          )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-center border-collapse bg-amber-50/80">
+            <thead>
+              <tr>
+                <th className="border border-amber-300/80 bg-amber-100/80 px-2 py-3 text-sm font-semibold text-stone-700 w-20">
+                  구분
+                </th>
+                {pillars.map((p) => (
+                  <th
+                    key={p.key}
+                    className="border border-amber-300/80 bg-amber-100/80 px-3 py-3 text-sm font-semibold text-stone-800"
+                  >
+                    {p.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-amber-300/80 px-2 py-2 text-xs font-medium text-stone-600 bg-amber-50">
+                  천간
+                </td>
+                {pillars.map((p) => {
+                  const gIdx = ganIndex(p.gan);
+                  const sign = elementSignGan(gIdx);
+                  const el = GAN_ELEMENTS[gIdx];
+                  const isDay = p.key === 'day';
+                  return (
+                    <td
+                      key={p.key}
+                      className={`border border-amber-300/80 px-2 py-3 ${isDay ? 'bg-sky-50/80' : 'bg-white'}`}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span className={`text-2xl font-bold ${elementColorClass(el)}`}>{p.gan}</span>
+                        <span className={`text-xs ${elementColorClass(el)}`}>{sign}</span>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <td className="border border-amber-300/80 px-2 py-2 text-xs font-medium text-stone-600 bg-amber-50">
+                  십성
+                </td>
+                {pillars.map((p) => (
+                  <td key={p.key} className="border border-amber-300/80 px-2 py-2 bg-white">
+                    {p.key === 'day' ? (
+                      <span className="text-sm font-semibold text-blue-700">비견</span>
+                    ) : (
+                      <span className="text-sm text-stone-800">
+                        {TEN_SIBS[p.ganSib as SibType]?.shortName ?? ''}
+                      </span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td className="border border-amber-300/80 px-2 py-2 text-xs font-medium text-stone-600 bg-amber-50">
+                  지지
+                </td>
+                {pillars.map((p) => {
+                  const sign = elementSignJi(p.jiIdx);
+                  const el = JI_ELEMENTS[p.jiIdx];
+                  const isDay = p.key === 'day';
+                  return (
+                    <td
+                      key={p.key}
+                      className={`border border-amber-300/80 px-2 py-3 ${isDay ? 'bg-sky-50/80' : 'bg-white'}`}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="text-2xl font-bold text-stone-800">{p.ji}</span>
+                        <span className={`text-xs ${elementColorClass(el)}`}>{sign}</span>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <td className="border border-amber-300/80 px-2 py-2 text-xs font-medium text-stone-600 bg-amber-50">
+                  십성
+                </td>
+                {pillars.map((p) => (
+                  <td key={p.key} className="border border-amber-300/80 px-2 py-2 bg-white">
+                    <span className="text-sm text-stone-800">
+                      {TEN_SIBS[p.jiSib]?.shortName ?? ''}
+                    </span>
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td className="border border-amber-300/80 px-2 py-2 text-xs font-medium text-stone-600 bg-amber-50">
+                  지장간
+                </td>
+                {pillars.map((p) => (
+                  <td key={p.key} className="border border-amber-300/80 px-2 py-2 bg-white">
+                    <span className="text-sm text-stone-800">{formatJijanggan(p.jiIdx)}</span>
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td className="border border-amber-300/80 px-2 py-2 text-xs font-medium text-stone-600 bg-amber-50">
+                  12운성
+                </td>
+                {pillars.map((p) => {
+                  const idx = getWoonsungIndex(dayGanIdx, p.jiIdx);
+                  return (
+                    <td key={p.key} className="border border-amber-300/80 px-2 py-2 bg-white">
+                      <span className="text-sm text-stone-800">{WOONSUNG_NAMES[idx]}</span>
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <td className="border border-amber-300/80 px-2 py-2 text-xs font-medium text-stone-600 bg-amber-50">
+                  12신살
+                </td>
+                {pillars.map((p) => (
+                  <td key={p.key} className="border border-amber-300/80 px-2 py-2 bg-white">
+                    <span className="text-sm text-stone-800">{getShinsal(p.jiIdx)}</span>
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         {result.hour && (
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-muted-foreground">
+          <div className="mt-4 p-3 bg-amber-100/60 rounded-lg text-center border border-amber-200/60">
+            <p className="text-sm text-stone-700">
               <strong>시주 시간:</strong> {result.hour.timeRange}
             </p>
           </div>
         )}
-        
+
         {!result.hour && (
-          <div className="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-            <p className="text-sm text-yellow-800">
-              <strong>참고:</strong> 태어난 시간을 모르셔서 시주는 계산하지 않았습니다. 사주삼존(년주, 월주, 일주)만 표시됩니다.
+          <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+            <p className="text-sm text-yellow-800 text-center">
+              태어난 시간을 모르셔서 시주는 계산하지 않았습니다.
             </p>
           </div>
         )}

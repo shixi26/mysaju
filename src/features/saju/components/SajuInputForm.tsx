@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { Input } from '@/components/ui/input';
+import { useState, useMemo } from 'react';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -14,6 +13,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Calendar } from 'lucide-react';
+import { JI_HOUR_SELECTIONS } from '../constants/ganji';
+
+const YEAR_MIN = 1900;
+const YEAR_MAX = 2100;
+
+function getDaysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
 
 interface SajuInputFormProps {
   onSubmit: (data: {
@@ -21,18 +28,31 @@ interface SajuInputFormProps {
     month: number;
     day: number;
     hour: number | null;
+    minute: number;
     calendarType: 'solar' | 'lunar';
+    isIntercalation?: boolean;
     gender: 'male' | 'female';
-  }) => void;
+  }) => void | Promise<void>;
+  isLoading?: boolean;
 }
 
-export function SajuInputForm({ onSubmit }: SajuInputFormProps) {
-  const [year, setYear] = useState<string>('');
-  const [month, setMonth] = useState<string>('');
-  const [day, setDay] = useState<string>('');
-  const [hour, setHour] = useState<string>('12');
+export function SajuInputForm({ onSubmit, isLoading = false }: SajuInputFormProps) {
+  const [year, setYear] = useState<string>(() => {
+    const d = new Date();
+    return d.getFullYear().toString();
+  });
+  const [month, setMonth] = useState<string>(() => {
+    const d = new Date();
+    return (d.getMonth() + 1).toString();
+  });
+  const [day, setDay] = useState<string>(() => {
+    const d = new Date();
+    return d.getDate().toString();
+  });
+  const [jiIndex, setJiIndex] = useState<string>('6');
   const [hourUnknown, setHourUnknown] = useState<boolean>(false);
   const [calendarType, setCalendarType] = useState<'solar' | 'lunar'>('solar');
+  const [isIntercalation, setIsIntercalation] = useState<boolean>(false);
   const [gender, setGender] = useState<'male' | 'female'>('male');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -41,8 +61,9 @@ export function SajuInputForm({ onSubmit }: SajuInputFormProps) {
     const yearNum = parseInt(year, 10);
     const monthNum = parseInt(month, 10);
     const dayNum = parseInt(day, 10);
-    const hourNum = hourUnknown ? null : parseInt(hour, 10);
+    const ji = parseInt(jiIndex, 10);
 
+    const maxDay = calendarType === 'lunar' ? 30 : getDaysInMonth(yearNum, monthNum);
     if (
       !year ||
       !month ||
@@ -50,20 +71,28 @@ export function SajuInputForm({ onSubmit }: SajuInputFormProps) {
       isNaN(yearNum) ||
       isNaN(monthNum) ||
       isNaN(dayNum) ||
-      yearNum < 1900 ||
-      yearNum > 2100 ||
+      yearNum < YEAR_MIN ||
+      yearNum > YEAR_MAX ||
       monthNum < 1 ||
       monthNum > 12 ||
       dayNum < 1 ||
-      dayNum > 31
+      dayNum > maxDay
     ) {
-      alert('올바른 생년월일을 입력해주세요.');
+      alert('올바른 생년월일을 선택해주세요.');
       return;
     }
 
-    if (!hourUnknown && (isNaN(parseInt(hour, 10)) || parseInt(hour, 10) < 0 || parseInt(hour, 10) > 23)) {
-      alert('올바른 시간을 입력해주세요.');
+    if (!hourUnknown && (isNaN(ji) || ji < 0 || ji > 11)) {
+      alert('올바른 생시를 선택해주세요.');
       return;
+    }
+
+    let hourNum: number | null = null;
+    let minuteNum = 0;
+    if (!hourUnknown) {
+      const sel = JI_HOUR_SELECTIONS[ji];
+      hourNum = sel.hour;
+      minuteNum = sel.minute;
     }
 
     onSubmit({
@@ -71,15 +100,37 @@ export function SajuInputForm({ onSubmit }: SajuInputFormProps) {
       month: monthNum,
       day: dayNum,
       hour: hourNum,
+      minute: minuteNum,
       calendarType,
+      isIntercalation: calendarType === 'lunar' ? isIntercalation : undefined,
       gender,
     });
   };
 
-  // 현재 날짜를 기본값으로 설정
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth() + 1;
-  const currentDay = new Date().getDate();
+  const fallback = new Date();
+  const currentYear = fallback.getFullYear();
+  const currentMonth = fallback.getMonth() + 1;
+
+  const y = year ? parseInt(year, 10) : currentYear;
+  const m = month ? parseInt(month, 10) : currentMonth;
+  const daysInMonth = useMemo(
+    () => (calendarType === 'lunar' ? 30 : getDaysInMonth(y, m)),
+    [calendarType, y, m]
+  );
+
+  const onMonthChange = (v: string) => {
+    setMonth(v);
+    if (!day) return;
+    const maxD = getDaysInMonth(y, parseInt(v, 10));
+    if (parseInt(day, 10) > maxD) setDay(maxD.toString());
+  };
+
+  const onYearChange = (v: string) => {
+    setYear(v);
+    if (!day) return;
+    const maxD = getDaysInMonth(parseInt(v, 10), m);
+    if (parseInt(day, 10) > maxD) setDay(maxD.toString());
+  };
 
   return (
     <Card className="p-6 md:p-8">
@@ -92,7 +143,7 @@ export function SajuInputForm({ onSubmit }: SajuInputFormProps) {
         {/* 음력/양력 선택 */}
         <div className="space-y-2">
           <Label>달력 구분</Label>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4 items-center">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="radio"
@@ -110,11 +161,23 @@ export function SajuInputForm({ onSubmit }: SajuInputFormProps) {
                 name="calendarType"
                 value="lunar"
                 checked={calendarType === 'lunar'}
-                onChange={(e) => setCalendarType(e.target.value as 'solar' | 'lunar')}
+                onChange={(e) => {
+                  setCalendarType(e.target.value as 'solar' | 'lunar');
+                  if (day && parseInt(day, 10) > 30) setDay('30');
+                }}
                 className="w-4 h-4"
               />
               <span className="text-sm">음력</span>
             </label>
+            {calendarType === 'lunar' && (
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <Checkbox
+                  checked={isIntercalation}
+                  onCheckedChange={(c) => setIsIntercalation(c === true)}
+                />
+                <span className="text-sm">윤달</span>
+              </label>
+            )}
           </div>
         </div>
 
@@ -147,98 +210,96 @@ export function SajuInputForm({ onSubmit }: SajuInputFormProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* 년도 */}
-          <div className="space-y-2">
-            <Label htmlFor="year">생년 (년)</Label>
-            <Input
-              id="year"
-              type="number"
-              placeholder={`예: ${currentYear}`}
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              min="1900"
-              max="2100"
-              required
-            />
-          </div>
-
-          {/* 월 */}
-          <div className="space-y-2">
-            <Label htmlFor="month">생월 (월)</Label>
-            <Select value={month} onValueChange={setMonth} required>
-              <SelectTrigger id="month">
-                <SelectValue placeholder="월을 선택하세요" />
+        {/* 생년월일 한 줄 */}
+        <div className="space-y-2">
+          <Label>생년월일</Label>
+          <div className="flex flex-wrap gap-2">
+            <Select value={year} onValueChange={onYearChange} required>
+              <SelectTrigger id="year" className="w-[100px]">
+                <SelectValue placeholder="년" />
               </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <SelectItem key={m} value={m.toString()}>
-                    {m}월
+                {Array.from({ length: YEAR_MAX - YEAR_MIN + 1 }, (_, i) => YEAR_MIN + i).map((n) => (
+                  <SelectItem key={n} value={n.toString()}>
+                    {n}년
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={month} onValueChange={onMonthChange} required>
+              <SelectTrigger id="month" className="w-[90px]">
+                <SelectValue placeholder="월" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                  <SelectItem key={n} value={n.toString()}>
+                    {n}월
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={day} onValueChange={setDay} required>
+              <SelectTrigger id="day" className="w-[90px]">
+                <SelectValue placeholder="일" />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((n) => (
+                  <SelectItem key={n} value={n.toString()}>
+                    {n}일
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+        </div>
 
-          {/* 일 */}
-          <div className="space-y-2">
-            <Label htmlFor="day">생일 (일)</Label>
-            <Input
-              id="day"
-              type="number"
-              placeholder={`예: ${currentDay}`}
-              value={day}
-              onChange={(e) => setDay(e.target.value)}
-              min="1"
-              max="31"
-              required
-            />
-          </div>
-
-          {/* 시간 */}
-          <div className="space-y-2">
-            <Label htmlFor="hour">생시 (시)</Label>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="hourUnknown"
-                  checked={hourUnknown}
-                  onCheckedChange={(checked) => {
-                    setHourUnknown(checked as boolean);
-                    if (!checked) {
-                      setHour('12');
-                    }
-                  }}
-                />
-                <Label htmlFor="hourUnknown" className="cursor-pointer text-sm">
-                  태어난 시간을 모릅니다
-                </Label>
-              </div>
-              {!hourUnknown && (
-                <Select value={hour} onValueChange={setHour}>
-                  <SelectTrigger id="hour">
-                    <SelectValue placeholder="시간을 선택하세요" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 24 }, (_, i) => i).map((h) => (
-                      <SelectItem key={h} value={h.toString()}>
-                        {h}시
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {hourUnknown && (
-                <p className="text-xs text-muted-foreground p-2 bg-yellow-50 rounded">
-                  시간을 모를 경우 시주 제외하고 계산됩니다.
-                </p>
-              )}
+        {/* 생시 한 줄 */}
+        <div className="space-y-2">
+          <Label>생시</Label>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="hourUnknown"
+                checked={hourUnknown}
+                onCheckedChange={(checked) => {
+                  setHourUnknown(checked as boolean);
+                  if (!checked) setJiIndex('6');
+                }}
+              />
+              <Label htmlFor="hourUnknown" className="cursor-pointer text-sm">
+                시간 모름
+              </Label>
             </div>
+            {!hourUnknown && (
+              <Select value={jiIndex} onValueChange={setJiIndex}>
+                <SelectTrigger id="ji" className="w-[200px]">
+                  <SelectValue placeholder="時 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {JI_HOUR_SELECTIONS.map((s) => (
+                    <SelectItem key={s.jiIndex} value={s.jiIndex.toString()}>
+                      {s.nameKo}시 {s.range}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {!hourUnknown && (
+              <span className="text-xs text-muted-foreground">자시 23:30~</span>
+            )}
+            {hourUnknown && (
+              <span className="text-xs text-muted-foreground">시주 제외 계산</span>
+            )}
           </div>
         </div>
 
-        <Button type="submit" className="w-full md:w-auto" size="lg">
-          사주팔자 보기
+        <Button
+          type="submit"
+          className="w-full md:w-auto"
+          size="lg"
+          disabled={isLoading}
+        >
+          {isLoading ? '계산 중...' : '사주팔자 보기'}
         </Button>
       </form>
     </Card>

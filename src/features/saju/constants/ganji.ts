@@ -77,21 +77,37 @@ export const JI_ELEMENTS: Record<number, keyof typeof FIVE_ELEMENTS> = {
   11: '수', // 해
 };
 
-// 십이지의 시간
+// 십이지의 시간 (자시 子時 시작 23:30 기준)
 export const JI_HOURS: Record<number, string> = {
-  0: '23:00-00:59', // 자
-  1: '01:00-02:59', // 축
-  2: '03:00-04:59', // 인
-  3: '05:00-06:59', // 묘
-  4: '07:00-08:59', // 진
-  5: '09:00-10:59', // 사
-  6: '11:00-12:59', // 오
-  7: '13:00-14:59', // 미
-  8: '15:00-16:59', // 신
-  9: '17:00-18:59', // 유
-  10: '19:00-20:59', // 술
-  11: '21:00-22:59', // 해
+  0: '23:30-01:29', // 자
+  1: '01:30-03:29', // 축
+  2: '03:30-05:29', // 인
+  3: '05:30-07:29', // 묘
+  4: '07:30-09:29', // 진
+  5: '09:30-11:29', // 사
+  6: '11:30-13:29', // 오
+  7: '13:30-15:29', // 미
+  8: '15:30-17:29', // 신
+  9: '17:30-19:29', // 유
+  10: '19:30-21:29', // 술
+  11: '21:30-23:29', // 해
 };
+
+/** 時 선택용 (자시 23:30 기준, 각 時당 대표 시·분) */
+export const JI_HOUR_SELECTIONS = [
+  { jiIndex: 0, name: '자', nameKo: '자', range: '23:30-01:29', hour: 0, minute: 0 },
+  { jiIndex: 1, name: '축', nameKo: '축', range: '01:30-03:29', hour: 2, minute: 0 },
+  { jiIndex: 2, name: '인', nameKo: '인', range: '03:30-05:29', hour: 4, minute: 0 },
+  { jiIndex: 3, name: '묘', nameKo: '묘', range: '05:30-07:29', hour: 6, minute: 0 },
+  { jiIndex: 4, name: '진', nameKo: '진', range: '07:30-09:29', hour: 8, minute: 0 },
+  { jiIndex: 5, name: '사', nameKo: '사', range: '09:30-11:29', hour: 10, minute: 0 },
+  { jiIndex: 6, name: '오', nameKo: '오', range: '11:30-13:29', hour: 12, minute: 0 },
+  { jiIndex: 7, name: '미', nameKo: '미', range: '13:30-15:29', hour: 14, minute: 0 },
+  { jiIndex: 8, name: '신', nameKo: '신', range: '15:30-17:29', hour: 16, minute: 0 },
+  { jiIndex: 9, name: '유', nameKo: '유', range: '17:30-19:29', hour: 18, minute: 0 },
+  { jiIndex: 10, name: '술', nameKo: '술', range: '19:30-21:29', hour: 20, minute: 0 },
+  { jiIndex: 11, name: '해', nameKo: '해', range: '21:30-23:29', hour: 22, minute: 0 },
+] as const;
 
 // 십이지의 장간(藏干) - 만세력 기준
 // 각 지지에 숨어있는 간지들

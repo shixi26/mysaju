@@ -1,3 +1,12 @@
+/**
+ * 만세력 계산기
+ * - 년주: 입춘(立春) 기준
+ * - 월주: 절기(節氣) 기준 (12節)
+ * - 일주: 1900년 1월 31일 = 甲子日 기준
+ * - 시주: 자시(子時) 23:30 시작, 일간 기준 시간 계산
+ * - 자시(23:30~01:29) 중 23:30~23:59는 다음날 일주 기준
+ */
+
 import {
   TEN_GAN,
   TWELVE_JI,
@@ -10,6 +19,8 @@ import {
   SibType,
 } from '../constants/ganji';
 import { calculateAllSibs } from './sibCalculator';
+import { getSolarYearMonth } from './solarTerms';
+import type { SolarTermsYearData } from './fetchSolarTerms';
 
 export interface SajuResult {
   year: { gan: string; ganName: string; ji: string; jiName: string; element: ElementType; ganSib: SibType; jiSib: SibType; jiHiddenSibs?: SibType[] };
@@ -27,145 +38,192 @@ export interface ElementCount {
 }
 
 /**
- * 년간 계산
- * 1984년 기준: 갑자년
+ * 년간 계산 (1984년 = 甲子年 기준)
  */
 function calculateYearGan(year: number): number {
-  const baseYear = 1984; // 갑자년
-  const baseGan = 0; // 갑
-  const diff = year - baseYear;
-  return ((baseGan + diff) % 10 + 10) % 10;
+  return ((year - 4) % 10 + 10) % 10;
 }
 
 /**
- * 년지 계산
+ * 년지 계산 (1984년 = 甲子年 기준)
  */
 function calculateYearJi(year: number): number {
-  const baseYear = 1984; // 갑자년
-  const baseJi = 0; // 자
-  const diff = year - baseYear;
-  return ((baseJi + diff) % 12 + 12) % 12;
+  return ((year - 4) % 12 + 12) % 12;
 }
 
 /**
- * 월간 계산 (절기 기준)
+ * 월간 계산 - 연간에 따른 월간 결정
+ * 甲己年 → 丙寅月 시작 (월간2)
+ * 乙庚年 → 戊寅月 시작 (월간4)
+ * 丙辛年 → 庚寅月 시작 (월간6)
+ * 丁壬年 → 壬寅月 시작 (월간8)
+ * 戊癸年 → 甲寅月 시작 (월간0)
  */
-function calculateMonthGan(year: number, month: number): number {
-  const yearGan = calculateYearGan(year);
-  // 월간 계산 공식: (년간 * 2 + 월) % 10
-  // 1월(인월)부터 시작
-  const monthIndex = month - 1;
-  return ((yearGan * 2 + monthIndex) % 10 + 10) % 10;
+function calculateMonthGan(yearGan: number, solarMonth: number): number {
+  const monthGanStart = [2, 4, 6, 8, 0, 2, 4, 6, 8, 0];
+  return (monthGanStart[yearGan] + (solarMonth - 1)) % 10;
 }
 
 /**
- * 월지 계산
+ * 월지 계산 - 절기월에 따른 지지
+ * 寅月(1)=寅(2), 卯月(2)=卯(3), ... 丑月(12)=丑(1)
  */
-function calculateMonthJi(month: number): number {
-  // 1월 = 인(2), 2월 = 묘(3), ..., 12월 = 축(1)
-  const monthJiMap: Record<number, number> = {
-    1: 2, // 인
-    2: 3, // 묘
-    3: 4, // 진
-    4: 5, // 사
-    5: 6, // 오
-    6: 7, // 미
-    7: 8, // 신
-    8: 9, // 유
-    9: 10, // 술
-    10: 11, // 해
-    11: 0, // 자
-    12: 1, // 축
-  };
-  return monthJiMap[month] ?? 2;
+function calculateMonthJi(solarMonth: number): number {
+  return (solarMonth + 1) % 12;
 }
 
 /**
- * 일간 계산 (1900년 1월 1일 = 갑진일 기준)
+ * 율리우스 일수(JD) 계산 - 정오 기준
  */
-function calculateDayGan(year: number, month: number, day: number): number {
-  const date = new Date(year, month - 1, day);
-  const baseDate = new Date(1900, 0, 1); // 1900년 1월 1일 = 갑진일
-  const baseGan = 0; // 갑
+function toJulianDay(year: number, month: number, day: number): number {
+  let y = year;
+  let m = month;
+  if (m <= 2) {
+    y -= 1;
+    m += 12;
+  }
+  const A = Math.floor(y / 100);
+  const B = 2 - A + Math.floor(A / 4);
+  return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + day + B - 1524.5;
+}
+
+/**
+ * JD -> JDN(정수) 변환
+ * - JD는 0.5 단위(정오 기준)라 날짜 경계 오차가 날 수 있음
+ * - JDN(정수)로 바꿔서 날짜차를 안정적으로 계산
+ */
+function toJulianDayNumber(year: number, month: number, day: number): number {
+  const jd = toJulianDay(year, month, day);
+  return Math.floor(jd + 0.5); // JDN
+}
+
+
+
+/**
+ * 일주 간지 계산 (60갑자 기반)
+ * 기준: 2024년 1월 1일 = 甲子日 (검증된 기준)
+ *
+ * ✅ 핵심:
+ * - diff로 60갑자 인덱스를 만든 뒤
+ * - 그 인덱스에서 gan/ji를 같이 뽑아야 결합 규칙이 깨지지 않음
+ */
+function calculateDayGanZhi(year: number, month: number, day: number): { gan: number; ji: number } {
+  // 2024-01-01 = 甲子日 (JDN 2460311)
+  const BASE_JDN = 2460311;
+
+  const jdn = toJulianDayNumber(year, month, day);
+  const diff = jdn - BASE_JDN;
+
+  const cycle60 = ((diff % 60) + 60) % 60; // 0..59, 0=甲子
+
+  const gan = cycle60 % 10;  // 0=甲 ... 9=癸
+  const ji = cycle60 % 12;   // 0=子 ... 11=亥
+
+  return { gan, ji };
+}
+
+
+/**
+ * 자시(子時) 여부 및 야자시 판단
+ * 23:30~23:59 → 야자시(다음날 자시)
+ */
+function isLateNightZi(hour: number, minute: number): boolean {
+  const totalMinutes = hour * 60 + minute;
+  return totalMinutes >= 1410; // 23:30 = 1410분
+}
+
+/**
+ * 시지(時支) 계산 - 자시 23:30 시작
+ * 子時: 23:30~01:29 (0)
+ * 丑時: 01:30~03:29 (1)
+ * ...
+ * 亥時: 21:30~23:29 (11)
+ */
+function calculateHourJi(hour: number, minute: number = 0): number {
+  const totalMinutes = hour * 60 + minute;
   
-  const diffTime = date.getTime() - baseDate.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  
-  return ((baseGan + diffDays) % 10 + 10) % 10;
+  // 자시 23:30~01:29
+  if (totalMinutes >= 1410 || totalMinutes < 90) return 0;
+  // 축시 01:30~03:29
+  if (totalMinutes < 210) return 1;
+  // 인시 03:30~05:29
+  if (totalMinutes < 330) return 2;
+  // 묘시 05:30~07:29
+  if (totalMinutes < 450) return 3;
+  // 진시 07:30~09:29
+  if (totalMinutes < 570) return 4;
+  // 사시 09:30~11:29
+  if (totalMinutes < 690) return 5;
+  // 오시 11:30~13:29
+  if (totalMinutes < 810) return 6;
+  // 미시 13:30~15:29
+  if (totalMinutes < 930) return 7;
+  // 신시 15:30~17:29
+  if (totalMinutes < 1050) return 8;
+  // 유시 17:30~19:29
+  if (totalMinutes < 1170) return 9;
+  // 술시 19:30~21:29
+  if (totalMinutes < 1290) return 10;
+  // 해시 21:30~23:29
+  return 11;
 }
 
 /**
- * 일지 계산
- */
-function calculateDayJi(year: number, month: number, day: number): number {
-  const date = new Date(year, month - 1, day);
-  const baseDate = new Date(1900, 0, 1); // 1900년 1월 1일 = 갑진일
-  const baseJi = 4; // 진
-  
-  const diffTime = date.getTime() - baseDate.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  
-  return ((baseJi + diffDays) % 12 + 12) % 12;
-}
-
-/**
- * 시간에 따른 지지 계산
- */
-function calculateHourJi(hour: number): number {
-  // 23시-0시59분 = 자(0)
-  // 1시-2시59분 = 축(1)
-  // ...
-  if (hour >= 23 || hour < 1) return 0; // 자
-  if (hour >= 1 && hour < 3) return 1; // 축
-  if (hour >= 3 && hour < 5) return 2; // 인
-  if (hour >= 5 && hour < 7) return 3; // 묘
-  if (hour >= 7 && hour < 9) return 4; // 진
-  if (hour >= 9 && hour < 11) return 5; // 사
-  if (hour >= 11 && hour < 13) return 6; // 오
-  if (hour >= 13 && hour < 15) return 7; // 미
-  if (hour >= 15 && hour < 17) return 8; // 신
-  if (hour >= 17 && hour < 19) return 9; // 유
-  if (hour >= 19 && hour < 21) return 10; // 술
-  return 11; // 해
-}
-
-/**
- * 시간에 따른 간지 계산
+ * 시간 계산 - 일간에 따른 시간 결정 (오자기두법)
+ * 甲己日 → 甲子時 시작
+ * 乙庚日 → 丙子時 시작
+ * 丙辛日 → 戊子時 시작
+ * 丁壬日 → 庚子時 시작
+ * 戊癸日 → 壬子時 시작
  */
 function calculateHourGan(dayGan: number, hourJi: number): number {
-  // 일간에 따라 시간이 결정됨
-  // 갑기일: 자시=갑, 을경일: 자시=병, 병신일: 자시=무, 정임일: 자시=경, 무계일: 자시=임
-  const dayGanToHourGanMap: Record<number, number[]> = {
-    0: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1], // 갑일: 자시=갑
-    1: [2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3], // 을일: 자시=병
-    2: [4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5], // 병일: 자시=무
-    3: [6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7], // 정일: 자시=경
-    4: [8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9], // 무일: 자시=임
-    5: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1], // 기일: 자시=갑
-    6: [2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3], // 경일: 자시=병
-    7: [4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5], // 신일: 자시=무
-    8: [6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7], // 임일: 자시=경
-    9: [8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9], // 계일: 자시=임
-  };
-  
-  return dayGanToHourGanMap[dayGan]?.[hourJi] ?? 0;
+  const hourGanStart = [0, 2, 4, 6, 8, 0, 2, 4, 6, 8];
+  return (hourGanStart[dayGan] + hourJi) % 10;
 }
 
 /**
- * 사주팔자 계산
+ * 사주팔자 계산 메인 함수
+ * @param solarTermsOverride API에서 받은 연도별 24절기 데이터 (선택)
  */
 export function calculateSaju(
   year: number,
   month: number,
   day: number,
-  hour: number | null
+  hour: number | null,
+  minute: number = 0,
+  solarTermsOverride?: Record<number, SolarTermsYearData> | null
 ): SajuResult {
-  const yearGanIndex = calculateYearGan(year);
-  const yearJiIndex = calculateYearJi(year);
-  const monthGanIndex = calculateMonthGan(year, month);
-  const monthJiIndex = calculateMonthJi(month);
-  const dayGanIndex = calculateDayGan(year, month, day);
-  const dayJiIndex = calculateDayJi(year, month, day);
+  // 야자시(23:30~23:59)인 경우 다음날로 일주 계산
+  let calcYear = year;
+  let calcMonth = month;
+  let calcDay = day;
+  
+  if (hour !== null && isLateNightZi(hour, minute)) {
+    const nextDate = new Date(Date.UTC(year, month - 1, day));
+    nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+    calcYear = nextDate.getUTCFullYear();
+    calcMonth = nextDate.getUTCMonth() + 1;
+    calcDay = nextDate.getUTCDate();    
+  }
+
+  // 절기 기준 년월 계산 (API 데이터 있으면 사용)
+  const { solarYear, solarMonth } = getSolarYearMonth(
+    year,
+    month,
+    day,
+    solarTermsOverride
+  );
+  
+  // 년주 계산
+  const yearGanIndex = calculateYearGan(solarYear);
+  const yearJiIndex = calculateYearJi(solarYear);
+  
+  // 월주 계산
+  const monthGanIndex = calculateMonthGan(yearGanIndex, solarMonth);
+  const monthJiIndex = calculateMonthJi(solarMonth);
+  
+  // 일주 계산 (야자시 보정된 날짜 사용)
+  const { gan: dayGanIndex, ji: dayJiIndex } = calculateDayGanZhi(calcYear, calcMonth, calcDay);
 
   const yearGan = TEN_GAN[yearGanIndex];
   const yearJi = TWELVE_JI[yearJiIndex];
@@ -174,17 +232,15 @@ export function calculateSaju(
   const dayGan = TEN_GAN[dayGanIndex];
   const dayJi = TWELVE_JI[dayJiIndex];
 
-  // 시주 계산 (시간을 모를 경우 null)
   let hourData: SajuResult['hour'] = null;
   let sibs: ReturnType<typeof calculateAllSibs>;
 
   if (hour !== null) {
-    const hourJiIndex = calculateHourJi(hour);
+    const hourJiIndex = calculateHourJi(hour, minute);
     const hourGanIndex = calculateHourGan(dayGanIndex, hourJiIndex);
     const hourGan = TEN_GAN[hourGanIndex];
     const hourJi = TWELVE_JI[hourJiIndex];
 
-    // 십성 계산 (시주 포함)
     sibs = calculateAllSibs(
       dayGanIndex,
       yearGan,
@@ -209,7 +265,6 @@ export function calculateSaju(
       jiHiddenSibs: sibs.hour.jiHidden,
     };
   } else {
-    // 십성 계산 (시주 제외)
     sibs = calculateAllSibs(
       dayGanIndex,
       yearGan,
@@ -218,8 +273,8 @@ export function calculateSaju(
       monthJi,
       dayGan,
       dayJi,
-      '', // 빈 문자열로 처리
-      '' // 빈 문자열로 처리
+      '',
+      ''
     );
   }
 
@@ -250,7 +305,7 @@ export function calculateSaju(
       ji: dayJi,
       jiName: TWELVE_JI_NAMES[dayJiIndex],
       element: GAN_ELEMENTS[dayGanIndex],
-      ganSib: '일간' as const,
+      ganSib: '일간',
       jiSib: sibs.day.ji,
       jiHiddenSibs: sibs.day.jiHidden,
     },
@@ -262,31 +317,19 @@ export function calculateSaju(
  * 오행 개수 계산
  */
 export function calculateElementCount(saju: SajuResult): ElementCount {
-  const count: ElementCount = {
-    목: 0,
-    화: 0,
-    토: 0,
-    금: 0,
-    수: 0,
+  const count: ElementCount = { 목: 0, 화: 0, 토: 0, 금: 0, 수: 0 };
+
+  const inc = (g: string, j: string) => {
+    const ganIdx = TEN_GAN.indexOf(g as (typeof TEN_GAN)[number]);
+    const jiIdx = TWELVE_JI.indexOf(j as (typeof TWELVE_JI)[number]);
+    if (ganIdx >= 0) count[GAN_ELEMENTS[ganIdx]]++;
+    if (jiIdx >= 0) count[JI_ELEMENTS[jiIdx]]++;
   };
 
-  // 년주
-  count[GAN_ELEMENTS[TEN_GAN.indexOf(saju.year.gan as (typeof TEN_GAN)[number])]]++;
-  count[JI_ELEMENTS[TWELVE_JI.indexOf(saju.year.ji as (typeof TWELVE_JI)[number])]]++;
-
-  // 월주
-  count[GAN_ELEMENTS[TEN_GAN.indexOf(saju.month.gan as (typeof TEN_GAN)[number])]]++;
-  count[JI_ELEMENTS[TWELVE_JI.indexOf(saju.month.ji as (typeof TWELVE_JI)[number])]]++;
-
-  // 일주
-  count[GAN_ELEMENTS[TEN_GAN.indexOf(saju.day.gan as (typeof TEN_GAN)[number])]]++;
-  count[JI_ELEMENTS[TWELVE_JI.indexOf(saju.day.ji as (typeof TWELVE_JI)[number])]]++;
-
-  // 시주 (있는 경우에만)
-  if (saju.hour) {
-    count[GAN_ELEMENTS[TEN_GAN.indexOf(saju.hour.gan as (typeof TEN_GAN)[number])]]++;
-    count[JI_ELEMENTS[TWELVE_JI.indexOf(saju.hour.ji as (typeof TWELVE_JI)[number])]]++;
-  }
+  inc(saju.year.gan, saju.year.ji);
+  inc(saju.month.gan, saju.month.ji);
+  inc(saju.day.gan, saju.day.ji);
+  if (saju.hour) inc(saju.hour.gan, saju.hour.ji);
 
   return count;
 }
